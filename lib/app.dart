@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tictacgo/features/game/presentation/screens/home_screen.dart';
 
 class TicTacGoApp extends StatelessWidget {
   const TicTacGoApp({super.key});
@@ -19,7 +20,7 @@ class TicTacGoApp extends StatelessWidget {
         colorSchemeSeed: Colors.blue,
         brightness: Brightness.dark,
       ),
-      home: const Scaffold(body: Center(child: Text('Tic Tac Go Ready'))),
+      home: const HomeScreen(),
     );
   }
 }
