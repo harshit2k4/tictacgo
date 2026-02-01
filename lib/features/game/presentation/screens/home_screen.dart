@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tictacgo/features/game/presentation/screens/game_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -25,7 +26,9 @@ class HomeScreen extends StatelessWidget {
 
               FilledButton.icon(
                 onPressed: () {
-                  // TODO: Navigate to Game Screen
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (context) => const GameScreen()),
+                  );
                 },
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(double.infinity, 56),
