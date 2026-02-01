@@ -11,18 +11,25 @@ class GameCell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isThinking = ref.watch(
+      gameNotifierProvider.select((s) => s.isAiThinking),
+    );
+
     return GestureDetector(
-      onTap: () {
-        // Call notifier to make a move
-        ref.read(gameNotifierProvider.notifier).makeMove(index);
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          // Using M3 Surface container colors
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
+      onTap: isThinking
+          ? null
+          : () => ref.read(gameNotifierProvider.notifier).makeMove(index),
+      child: Opacity(
+        // Subtly dim the board while AI makes the move
+        opacity: isThinking ? 0.7 : 1.0,
+        child: Container(
+          decoration: BoxDecoration(
+            // Using M3 Surface container colors
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Center(child: _buildPlayerMarker()),
         ),
-        child: Center(child: _buildPlayerMarker()),
       ),
     );
   }

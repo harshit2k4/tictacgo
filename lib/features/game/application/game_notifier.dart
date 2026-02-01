@@ -1,4 +1,5 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:tictacgo/features/game/application/ai_service.dart';
 import '../domain/game_board.dart';
 import '../domain/player.dart';
 
@@ -15,26 +16,60 @@ class GameNotifier extends _$GameNotifier {
   }
 
   void makeMove(int index) {
-    // Logic: If cell is taken or game is over, do nothing
-    if (state.cells[index] != Player.none || state.winner != null) return;
+    // 1. Block if AI is thinking!
+    if (state.cells[index] != Player.none ||
+        state.winner != null ||
+        state.isDraw ||
+        state.isAiThinking) {
+      return;
+    }
 
-    // Logic: Place the mark
+    // 2. Execute Human Move
     final newCells = List<Player>.from(state.cells);
     newCells[index] = state.currentPlayer;
 
-    // Check for Winner
     final winner = _calculateWinner(newCells);
-
-    // Check for Draw
     final isDraw = !newCells.contains(Player.none) && winner == null;
 
-    // Update State
     state = state.copyWith(
       cells: newCells,
       currentPlayer: state.currentPlayer == Player.x ? Player.o : Player.x,
       winner: winner,
       isDraw: isDraw,
+      // If the game continues, set thinking to true for the AI turn
+      isAiThinking:
+          (winner == null &&
+          !isDraw &&
+          Player.o == (state.currentPlayer == Player.x ? Player.o : Player.x)),
     );
+
+    if (state.isAiThinking) {
+      _triggerAiMove();
+    }
+  }
+
+  void _triggerAiMove() {
+    // 300ms delay to simulate Ai thinking
+    Future.delayed(const Duration(milliseconds: 300), () {
+      final aiMove = AiService().findBestMove(state);
+
+      if (aiMove != -1) {
+        // Make AI move, then set isAiThinking back to false
+        final newCells = List<Player>.from(state.cells);
+        newCells[aiMove] = Player.o;
+
+        final winner = _calculateWinner(newCells);
+        final isDraw = !newCells.contains(Player.none) && winner == null;
+
+        state = state.copyWith(
+          cells: newCells,
+          currentPlayer: Player.x,
+          winner: winner,
+          isDraw: isDraw,
+          isAiThinking: false, // AI has played, so allow human to make move
+        );
+      }
+    });
   }
 
   Player? _calculateWinner(List<Player> cells) {
