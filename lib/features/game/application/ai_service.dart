@@ -1,24 +1,32 @@
+import 'dart:math';
 import '../domain/game_board.dart';
 import '../domain/player.dart';
-
-/// This is the core Mini-Max Algorithm
+import '../domain/difficulty.dart';
 
 class AiService {
-  // Set AI to be O
   static const Player aiPlayer = Player.o;
   static const Player humanPlayer = Player.x;
 
-  /// The entry point for the AI to find the best move
-  int findBestMove(GameBoard board) {
+  int findBestMove(GameBoard board, Difficulty difficulty) {
+    // EASY: Just pick a random empty spot
+    if (difficulty == Difficulty.easy) {
+      final availableIndices = <int>[];
+      for (int i = 0; i < 9; i++) {
+        if (board.cells[i] == Player.none) availableIndices.add(i);
+      }
+      return availableIndices[Random().nextInt(availableIndices.length)];
+    }
+
+    // MEDIUM & HARD: Use Minimax with different depth limits
+    int maxDepth = (difficulty == Difficulty.medium) ? 2 : 100;
+
     int bestScore = -1000;
     int move = -1;
 
     for (int i = 0; i < 9; i++) {
       if (board.cells[i] == Player.none) {
-        // Try the move
         board.cells[i] = aiPlayer;
-        int score = _minimax(board, 0, false);
-        // Undo the move
+        int score = _minimax(board, 0, false, maxDepth);
         board.cells[i] = Player.none;
 
         if (score > bestScore) {
@@ -30,21 +38,20 @@ class AiService {
     return move;
   }
 
-  int _minimax(GameBoard board, int depth, bool isMaximizing) {
-    // Check terminal states
+  int _minimax(GameBoard board, int depth, bool isMaximizing, int maxDepth) {
     final winner = _checkWinner(board.cells);
     if (winner == aiPlayer) return 10 - depth;
     if (winner == humanPlayer) return depth - 10;
-    if (!board.cells.contains(Player.none)) return 0;
+    if (!board.cells.contains(Player.none) || depth >= maxDepth) return 0;
 
     if (isMaximizing) {
       int bestScore = -1000;
       for (int i = 0; i < 9; i++) {
         if (board.cells[i] == Player.none) {
           board.cells[i] = aiPlayer;
-          int score = _minimax(board, depth + 1, false);
+          int score = _minimax(board, depth + 1, false, maxDepth);
           board.cells[i] = Player.none;
-          bestScore = (score > bestScore) ? score : bestScore;
+          bestScore = max(score, bestScore);
         }
       }
       return bestScore;
@@ -53,16 +60,15 @@ class AiService {
       for (int i = 0; i < 9; i++) {
         if (board.cells[i] == Player.none) {
           board.cells[i] = humanPlayer;
-          int score = _minimax(board, depth + 1, true);
+          int score = _minimax(board, depth + 1, true, maxDepth);
           board.cells[i] = Player.none;
-          bestScore = (score < bestScore) ? score : bestScore;
+          bestScore = min(score, bestScore);
         }
       }
       return bestScore;
     }
   }
 
-  // Check winner within the AI service
   Player? _checkWinner(List<Player> cells) {
     const lines = [
       [0, 1, 2],

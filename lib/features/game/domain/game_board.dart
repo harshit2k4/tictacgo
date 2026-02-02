@@ -1,3 +1,4 @@
+import 'package:tictacgo/features/game/domain/difficulty.dart';
 import 'package:tictacgo/features/game/domain/player.dart';
 
 class GameBoard {
@@ -6,6 +7,7 @@ class GameBoard {
   final Player? winner;
   final bool isDraw;
   final bool isAiThinking;
+  final Difficulty difficulty;
 
   GameBoard({
     required this.cells,
@@ -13,11 +15,15 @@ class GameBoard {
     this.winner,
     this.isDraw = false,
     this.isAiThinking = false,
+    this.difficulty = Difficulty.hard, // Default to hard
   });
 
   // This creates a fresh, empty 3x3 grid
-  factory GameBoard.empty() {
-    return GameBoard(cells: List.generate(9, (_) => Player.none));
+  factory GameBoard.empty({Difficulty difficulty = Difficulty.hard}) {
+    return GameBoard(
+      cells: List.generate(9, (_) => Player.none),
+      difficulty: difficulty,
+    );
   }
 
   // The 'copyWith' method is essential for Riverpod.
@@ -28,6 +34,7 @@ class GameBoard {
     Player? winner,
     bool? isDraw,
     bool? isAiThinking,
+    Difficulty? difficulty,
   }) {
     return GameBoard(
       cells: cells ?? this.cells,
@@ -35,6 +42,7 @@ class GameBoard {
       winner: winner ?? this.winner,
       isDraw: isDraw ?? this.isDraw,
       isAiThinking: isAiThinking ?? this.isAiThinking,
+      difficulty: difficulty ?? this.difficulty,
     );
   }
 }

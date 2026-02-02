@@ -1,22 +1,29 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:tictacgo/features/game/application/ai_service.dart';
+import 'package:tictacgo/features/game/domain/difficulty.dart';
 import '../domain/game_board.dart';
 import '../domain/player.dart';
 
-// This line is required for Riverpod code generation
+// Required for Riverpod code generation
 // Run in terminal: dart run build_runner build
 part 'game_notifier.g.dart';
+
+final selectedDifficultyProvider = StateProvider<Difficulty>(
+  (ref) => Difficulty.hard,
+);
 
 @riverpod
 class GameNotifier extends _$GameNotifier {
   @override
   GameBoard build() {
     // Start with an empty board
-    return GameBoard.empty();
+    final initialDifficulty = ref.watch(selectedDifficultyProvider);
+    return GameBoard.empty(difficulty: initialDifficulty);
   }
 
   void makeMove(int index) {
-    // 1. Block if AI is thinking!
+    // Block if AI is thinking
     if (state.cells[index] != Player.none ||
         state.winner != null ||
         state.isDraw ||
@@ -24,7 +31,7 @@ class GameNotifier extends _$GameNotifier {
       return;
     }
 
-    // 2. Execute Human Move
+    // Execute Human Move
     final newCells = List<Player>.from(state.cells);
     newCells[index] = state.currentPlayer;
 
@@ -49,12 +56,11 @@ class GameNotifier extends _$GameNotifier {
   }
 
   void _triggerAiMove() {
-    // 300ms delay to simulate Ai thinking
-    Future.delayed(const Duration(milliseconds: 300), () {
-      final aiMove = AiService().findBestMove(state);
+    Future.delayed(const Duration(milliseconds: 400), () {
+      // Pass the current difficulty from the state
+      final aiMove = AiService().findBestMove(state, state.difficulty);
 
       if (aiMove != -1) {
-        // Make AI move, then set isAiThinking back to false
         final newCells = List<Player>.from(state.cells);
         newCells[aiMove] = Player.o;
 
@@ -66,10 +72,14 @@ class GameNotifier extends _$GameNotifier {
           currentPlayer: Player.x,
           winner: winner,
           isDraw: isDraw,
-          isAiThinking: false, // AI has played, so allow human to make move
+          isAiThinking: false,
         );
       }
     });
+  }
+
+  void startGame(Difficulty difficulty) {
+    state = GameBoard.empty(difficulty: difficulty);
   }
 
   Player? _calculateWinner(List<Player> cells) {
@@ -90,6 +100,12 @@ class GameNotifier extends _$GameNotifier {
   }
 
   void resetGame() {
-    state = GameBoard.empty();
+    /// There are two options
+    // Option A: Use the difficulty already stored in the current game session
+    final currentDifficulty = state.difficulty;
+    state = GameBoard.empty(difficulty: currentDifficulty);
+
+    // Option B: Always reset to whatever the user has selected on the Home Screen
+    // state = GameBoard.empty(difficulty: ref.read(selectedDifficultyProvider));
   }
 }
