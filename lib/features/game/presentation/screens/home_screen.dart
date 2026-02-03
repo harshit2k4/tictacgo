@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tictacgo/features/game/application/game_notifier.dart';
+import 'package:tictacgo/features/game/domain/difficulty.dart';
 import 'package:tictacgo/features/game/presentation/screens/game_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Watch the selected difficulty
+    final selectedDifficulty = ref.watch(selectedDifficultyProvider);
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -24,8 +29,38 @@ class HomeScreen extends StatelessWidget {
               const Text('Play the classic, evolved.'),
               const Spacer(),
 
+              const Text(
+                'Select Difficulty',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+
+              // Material 3 Segmented Button
+              SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<Difficulty>(
+                  segments: const [
+                    ButtonSegment(value: Difficulty.easy, label: Text('Easy')),
+                    ButtonSegment(value: Difficulty.medium, label: Text('Med')),
+                    ButtonSegment(value: Difficulty.hard, label: Text('Hard')),
+                  ],
+                  selected: {selectedDifficulty},
+                  onSelectionChanged: (Set<Difficulty> newSelection) {
+                    ref.read(selectedDifficultyProvider.notifier).state =
+                        newSelection.first;
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
               FilledButton.icon(
                 onPressed: () {
+                  // Tell the notifier to initialize with the selected difficulty
+                  ref
+                      .read(gameNotifierProvider.notifier)
+                      .startGame(selectedDifficulty);
+
                   Navigator.of(context).push(
                     MaterialPageRoute(builder: (context) => const GameScreen()),
                   );
