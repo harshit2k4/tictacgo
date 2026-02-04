@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_ce/hive.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:tictacgo/features/game/application/ai_service.dart';
 import 'package:tictacgo/features/game/domain/difficulty.dart';
+import 'package:tictacgo/features/game/domain/game_stats.dart';
 import '../domain/game_board.dart';
 import '../domain/player.dart';
 
@@ -43,12 +45,16 @@ class GameNotifier extends _$GameNotifier {
       currentPlayer: state.currentPlayer == Player.x ? Player.o : Player.x,
       winner: winner,
       isDraw: isDraw,
-      // If the game continues, set thinking to true for the AI turn
       isAiThinking:
           (winner == null &&
           !isDraw &&
           Player.o == (state.currentPlayer == Player.x ? Player.o : Player.x)),
     );
+
+    // save to db
+    if (winner != null || isDraw) {
+      _checkAndSaveResult(winner, isDraw);
+    }
 
     if (state.isAiThinking) {
       _triggerAiMove();
@@ -57,7 +63,6 @@ class GameNotifier extends _$GameNotifier {
 
   void _triggerAiMove() {
     Future.delayed(const Duration(milliseconds: 400), () {
-      // Pass the current difficulty from the state
       final aiMove = AiService().findBestMove(state, state.difficulty);
 
       if (aiMove != -1) {
@@ -74,8 +79,35 @@ class GameNotifier extends _$GameNotifier {
           isDraw: isDraw,
           isAiThinking: false,
         );
+
+        // save to db
+        if (winner != null || isDraw) {
+          _checkAndSaveResult(winner, isDraw);
+        }
       }
     });
+  }
+
+  void _checkAndSaveResult(Player? winner, bool isDraw) {
+    if (winner != null || isDraw) {
+      final box = Hive.box<GameStats>('stats_box');
+
+      // Get the existing stats, or a fresh object if null
+      final stats = box.get('global_stats') ?? GameStats();
+
+      // Update the values
+      if (isDraw) {
+        stats.draws++;
+      } else if (winner == Player.x) {
+        stats.wins++;
+      } else if (winner == Player.o) {
+        stats.losses++;
+      }
+
+      // Manually put it back into the box using the key
+      // This works whether the object was already in the box or newly created
+      box.put('global_stats', stats);
+    }
   }
 
   void startGame(Difficulty difficulty) {

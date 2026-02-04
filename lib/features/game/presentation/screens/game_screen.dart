@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_ce/hive.dart';
 import 'package:tictacgo/features/game/application/game_notifier.dart';
+import 'package:tictacgo/features/game/domain/game_board.dart';
+import 'package:tictacgo/features/game/domain/game_stats.dart';
 import 'package:tictacgo/features/game/domain/player.dart';
 import 'package:tictacgo/features/game/presentation/widgets/game_cell.dart';
 
@@ -10,6 +13,14 @@ class GameScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(gameNotifierProvider);
+
+    // LISTEN for game end
+    ref.listen(gameNotifierProvider, (previous, next) {
+      if ((next.winner != null || next.isDraw) &&
+          (previous?.winner == null && previous?.isDraw == false)) {
+        _showGameOverDialog(context, next, ref);
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -72,6 +83,158 @@ class GameScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  void _showGameOverDialog(
+    BuildContext context,
+    GameBoard state,
+    WidgetRef ref,
+  ) {
+    // Access lifetime stats to show the player their record
+    final statsBox = Hive.box<GameStats>('stats_box');
+    final stats = statsBox.get('global_stats') ?? GameStats();
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierLabel: "Game Over",
+      transitionDuration: const Duration(milliseconds: 400),
+      pageBuilder: (context, anim1, anim2) {
+        return const SizedBox();
+      },
+      transitionBuilder: (context, anim1, anim2, child) {
+        return Transform.scale(
+          scale: anim1.value,
+          child: Opacity(
+            opacity: anim1.value,
+            child: AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(28),
+              ),
+              contentPadding: const EdgeInsets.all(24),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Icon based on result
+                  CircleAvatar(
+                    radius: 36,
+                    backgroundColor: state.winner == Player.x
+                        ? Colors.green.withOpacity(0.1)
+                        : state.isDraw
+                        ? Colors.orange.withOpacity(0.1)
+                        : Colors.red.withOpacity(0.1),
+                    child: Icon(
+                      state.winner == Player.x
+                          ? Icons.emoji_events
+                          : state.isDraw
+                          ? Icons.handshake
+                          : Icons.sentiment_very_dissatisfied,
+                      size: 40,
+                      color: state.winner == Player.x
+                          ? Colors.green
+                          : state.isDraw
+                          ? Colors.orange
+                          : Colors.red,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Result Text
+                  Text(
+                    state.winner == Player.x
+                        ? "Victory!"
+                        : state.isDraw
+                        ? "It's a Draw"
+                        : "Defeat",
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    state.winner == Player.x
+                        ? "You outsmarted the AI!"
+                        : "Better luck next time.",
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 24),
+                  // Stats Preview Row
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 16,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceVariant.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildStatColumn("Wins", stats.wins),
+                        _buildStatColumn("Draws", stats.draws),
+                        _buildStatColumn("Losses", stats.losses),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            Navigator.of(context).pop(); // Close dialog
+                            Navigator.of(context).pop(); // Exit Game
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text("Exit"),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            ref.read(gameNotifierProvider.notifier).resetGame();
+                          },
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text("Play Again"),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Helper widget for stats
+  Widget _buildStatColumn(String label, int value) {
+    return Column(
+      children: [
+        Text(
+          value.toString(),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        Text(label, style: const TextStyle(fontSize: 12)),
+      ],
     );
   }
 }
