@@ -1,5 +1,6 @@
 name: tictacgo
-description: "A cross-platform Tic Tac Toe game featuring Minimax AI, P2P local discovery, and real-time online multiplayer using Material 3."
+description: "A cross-platform Tic Tac Toe game featuring Minimax AI, P2P local
+  discovery, and real-time online multiplayer using Material 3."
 publish_to: 'none'
 version: 0.1.0
 
@@ -7,9 +8,10 @@ environment:
   sdk: '>=3.10.4 <4.0.0'
 
 dependencies:
+  confetti: ^0.7.0
   cupertino_icons: ^1.0.6
   flutter:
-    sdk: flutter  
+    sdk: flutter
   flutter_riverpod: ^2.5.1
   hive_ce: ^2.0.0
   hive_ce_flutter: ^2.0.0
