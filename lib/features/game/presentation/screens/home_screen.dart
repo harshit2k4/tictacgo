@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_ce/hive.dart';
+import 'package:hive_ce_flutter/hive_ce_flutter.dart';
 import 'package:tictacgo/features/game/application/game_notifier.dart';
 import 'package:tictacgo/features/game/domain/difficulty.dart';
+import 'package:tictacgo/features/game/domain/game_stats.dart';
 import 'package:tictacgo/features/game/presentation/screens/game_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -27,6 +30,54 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ),
               const Text('Play the classic, evolved.'),
+              const SizedBox(height: 32),
+
+              // --- NEW STATS CARD ---
+              ValueListenableBuilder(
+                valueListenable: Hive.box<GameStats>('stats_box').listenable(),
+                builder: (context, box, _) {
+                  final stats = box.get('global_stats') ?? GameStats();
+                  return Card(
+                    elevation: 0,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceVariant.withOpacity(0.3),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      side: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildHomeStat(
+                            context,
+                            "Wins",
+                            stats.wins.toString(),
+                            Colors.green,
+                          ),
+                          _buildHomeStat(
+                            context,
+                            "Draws",
+                            stats.draws.toString(),
+                            Colors.orange,
+                          ),
+                          _buildHomeStat(
+                            context,
+                            "Losses",
+                            stats.losses.toString(),
+                            Colors.red,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+              // ----------------------
               const Spacer(),
 
               const Text(
@@ -86,6 +137,31 @@ class HomeScreen extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildHomeStat(
+    BuildContext context,
+    String label,
+    String value,
+    Color color,
+  ) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 }

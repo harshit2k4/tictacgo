@@ -24,6 +24,11 @@ class GameNotifier extends _$GameNotifier {
     return GameBoard.empty(difficulty: initialDifficulty);
   }
 
+  final gameStatsProvider = Provider<GameStats>((ref) {
+    final box = Hive.box<GameStats>('stats_box');
+    return box.get('global_stats') ?? GameStats();
+  });
+
   void makeMove(int index) {
     // Block if AI is thinking
     if (state.cells[index] != Player.none ||
