@@ -1,3 +1,4 @@
+import 'package:confetti/confetti.dart'; // 1. Add this import
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
@@ -7,82 +8,127 @@ import 'package:tictacgo/features/game/domain/game_stats.dart';
 import 'package:tictacgo/features/game/domain/player.dart';
 import 'package:tictacgo/features/game/presentation/widgets/game_cell.dart';
 
-class GameScreen extends ConsumerWidget {
+class GameScreen extends ConsumerStatefulWidget {
   const GameScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<GameScreen> createState() => _GameScreenState();
+}
+
+class _GameScreenState extends ConsumerState<GameScreen> {
+  // init controller
+  late ConfettiController _confettiController;
+
+  @override
+  void initState() {
+    super.initState();
+    _confettiController = ConfettiController(
+      duration: const Duration(seconds: 2),
+    );
+  }
+
+  @override
+  void dispose() {
+    _confettiController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(gameNotifierProvider);
 
     // LISTEN for game end
     ref.listen(gameNotifierProvider, (previous, next) {
       if ((next.winner != null || next.isDraw) &&
           (previous?.winner == null && previous?.isDraw == false)) {
+        // Fire confetti only on human win
+        if (next.winner == Player.x) {
+          _confettiController.play();
+        }
+
         _showGameOverDialog(context, next, ref);
       }
     });
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Tic Tac Go'),
-        actions: [
-          IconButton(
-            onPressed: () =>
-                ref.read(gameNotifierProvider.notifier).resetGame(),
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 20),
-            // Status Text
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16.0),
-              child: Text(
-                state.winner != null
-                    ? 'Winner: ${state.winner == Player.x ? "X" : "O"}'
-                    : state.isDraw
-                    ? 'It\'s a Draw!'
-                    : 'Player ${state.currentPlayer == Player.x ? "X" : "O"}\'s Turn',
-                style: Theme.of(context).textTheme.headlineMedium,
+    return Stack(
+      // Wrap in Stack for the confetti layer
+      children: [
+        Scaffold(
+          appBar: AppBar(
+            title: const Text('Tic Tac Go'),
+            actions: [
+              IconButton(
+                onPressed: () =>
+                    ref.read(gameNotifierProvider.notifier).resetGame(),
+                icon: const Icon(Icons.refresh),
               ),
-            ),
-
-            // Main board
-            Expanded(
-              child: Center(
-                child: AspectRatio(
-                  aspectRatio: 1,
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: GridView.builder(
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                          ),
-                      itemCount: 9,
-                      itemBuilder: (context, index) {
-                        return GameCell(
-                          index: index,
-                          player: state.cells[index],
-                        );
-                      },
+            ],
+          ),
+          body: SafeArea(
+            child: Column(
+              children: [
+                const SizedBox(height: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16.0),
+                  child: Text(
+                    state.winner != null
+                        ? 'Winner: ${state.winner == Player.x ? "X" : "O"}'
+                        : state.isDraw
+                        ? 'It\'s a Draw!'
+                        : 'Player ${state.currentPlayer == Player.x ? "X" : "O"}\'s Turn',
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
+                ),
+                Expanded(
+                  child: Center(
+                    child: AspectRatio(
+                      aspectRatio: 1,
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: GridView.builder(
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 3,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                              ),
+                          itemCount: 9,
+                          itemBuilder: (context, index) {
+                            return GameCell(
+                              index: index,
+                              player: state.cells[index],
+                            );
+                          },
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
+                const SizedBox(height: 40),
+              ],
             ),
-
-            // Bottom Spacer for uniform look
-            const SizedBox(height: 40),
-          ],
+          ),
         ),
-      ),
+
+        // Confetti Widget Layer
+        Align(
+          alignment: Alignment.topCenter,
+          child: ConfettiWidget(
+            confettiController: _confettiController,
+            blastDirectionality: BlastDirectionality.explosive,
+            shouldLoop: false,
+            colors: const [
+              Colors.green,
+              Colors.blue,
+              Colors.pink,
+              Colors.orange,
+              Colors.purple,
+            ],
+            gravity: 0.1,
+          ),
+        ),
+      ],
     );
   }
 
@@ -100,9 +146,7 @@ class GameScreen extends ConsumerWidget {
       barrierDismissible: false,
       barrierLabel: "Game Over",
       transitionDuration: const Duration(milliseconds: 400),
-      pageBuilder: (context, anim1, anim2) {
-        return const SizedBox();
-      },
+      pageBuilder: (context, anim1, anim2) => const SizedBox(),
       transitionBuilder: (context, anim1, anim2, child) {
         return Transform.scale(
           scale: anim1.value,
@@ -186,8 +230,8 @@ class GameScreen extends ConsumerWidget {
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () {
-                            Navigator.of(context).pop(); // Close dialog
-                            Navigator.of(context).pop(); // Exit Game
+                            Navigator.of(context).pop();
+                            Navigator.of(context).pop();
                           },
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
