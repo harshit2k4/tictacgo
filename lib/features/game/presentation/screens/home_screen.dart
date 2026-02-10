@@ -4,6 +4,7 @@ import 'package:hive_ce/hive.dart';
 import 'package:hive_ce_flutter/hive_ce_flutter.dart';
 import 'package:tictacgo/features/game/application/game_notifier.dart';
 import 'package:tictacgo/features/game/domain/difficulty.dart';
+import 'package:tictacgo/features/game/domain/game_mode.dart';
 import 'package:tictacgo/features/game/domain/game_stats.dart';
 import 'package:tictacgo/features/game/presentation/screens/game_screen.dart';
 
@@ -110,8 +111,7 @@ class HomeScreen extends ConsumerWidget {
                   // Tell the notifier to initialize with the selected difficulty
                   ref
                       .read(gameNotifierProvider.notifier)
-                      .startGame(selectedDifficulty);
-
+                      .startGame(selectedDifficulty, GameMode.singlePlayer);
                   Navigator.of(context).push(
                     MaterialPageRoute(builder: (context) => const GameScreen()),
                   );
@@ -125,12 +125,37 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 12),
 
               FilledButton.tonalIcon(
-                onPressed: () {},
+                onPressed: () {
+                  ref
+                      .read(gameNotifierProvider.notifier)
+                      .startGame(selectedDifficulty, GameMode.localMultiplayer);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (context) => const GameScreen()),
+                  );
+                },
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 56),
+                ),
+                icon: const Icon(Icons.tablet_android),
+                label: const Text('Pass & Play'),
+              ),
+
+              const SizedBox(height: 12),
+
+              FilledButton.tonalIcon(
+                onPressed: () {
+                  // Placeholder for Cross-Device (Bluetooth/WiFi)
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Nearby Cross-Device play coming soon!"),
+                    ),
+                  );
+                },
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(double.infinity, 56),
                 ),
                 icon: const Icon(Icons.group),
-                label: const Text('2 Player Nearby'),
+                label: const Text('2 Player Nearby (P2P)'),
               ),
               const SizedBox(height: 60),
             ],

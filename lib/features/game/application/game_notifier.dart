@@ -3,6 +3,7 @@ import 'package:hive_ce/hive.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:tictacgo/features/game/application/ai_service.dart';
 import 'package:tictacgo/features/game/domain/difficulty.dart';
+import 'package:tictacgo/features/game/domain/game_mode.dart';
 import 'package:tictacgo/features/game/domain/game_stats.dart';
 import '../domain/game_board.dart';
 import '../domain/player.dart';
@@ -15,7 +16,7 @@ final selectedDifficultyProvider = StateProvider<Difficulty>(
   (ref) => Difficulty.hard,
 );
 
-@riverpod
+@Riverpod(keepAlive: true)
 class GameNotifier extends _$GameNotifier {
   @override
   GameBoard build() {
@@ -29,8 +30,45 @@ class GameNotifier extends _$GameNotifier {
     return box.get('global_stats') ?? GameStats();
   });
 
+  // void makeMove(int index) {
+  //   // Block if AI is thinking
+  //   if (state.cells[index] != Player.none ||
+  //       state.winner != null ||
+  //       state.isDraw ||
+  //       state.isAiThinking) {
+  //     return;
+  //   }
+
+  //   // Execute Human Move
+  //   final newCells = List<Player>.from(state.cells);
+  //   newCells[index] = state.currentPlayer;
+
+  //   final winner = _calculateWinner(newCells);
+  //   final isDraw = !newCells.contains(Player.none) && winner == null;
+
+  //   state = state.copyWith(
+  //     cells: newCells,
+  //     currentPlayer: state.currentPlayer == Player.x ? Player.o : Player.x,
+  //     winner: winner,
+  //     isDraw: isDraw,
+  //     isAiThinking:
+  //         (winner == null &&
+  //         !isDraw &&
+  //         Player.o == (state.currentPlayer == Player.x ? Player.o : Player.x)),
+  //   );
+
+  //   // save to db
+  //   if (winner != null || isDraw) {
+  //     _checkAndSaveResult(winner, isDraw);
+  //   }
+
+  //   if (state.isAiThinking) {
+  //     _triggerAiMove();
+  //   }
+  // }
+
   void makeMove(int index) {
-    // Block if AI is thinking
+    // Standard checks
     if (state.cells[index] != Player.none ||
         state.winner != null ||
         state.isDraw ||
@@ -38,30 +76,40 @@ class GameNotifier extends _$GameNotifier {
       return;
     }
 
-    // Execute Human Move
+    // Execute the current move
     final newCells = List<Player>.from(state.cells);
     newCells[index] = state.currentPlayer;
 
     final winner = _calculateWinner(newCells);
     final isDraw = !newCells.contains(Player.none) && winner == null;
+    final nextPlayer = state.currentPlayer == Player.x ? Player.o : Player.x;
+
+    // Check if we should actually trigger the AI
+    // Trigger the AI if:
+    // - It's Single Player mode
+    // - No one has won yet
+    // - It's now the AI's turn (Player O)
+    final shouldTriggerAi =
+        state.gameMode == GameMode.singlePlayer &&
+        winner == null &&
+        !isDraw &&
+        nextPlayer == Player.o;
 
     state = state.copyWith(
       cells: newCells,
-      currentPlayer: state.currentPlayer == Player.x ? Player.o : Player.x,
+      currentPlayer: nextPlayer,
       winner: winner,
       isDraw: isDraw,
-      isAiThinking:
-          (winner == null &&
-          !isDraw &&
-          Player.o == (state.currentPlayer == Player.x ? Player.o : Player.x)),
+      isAiThinking: shouldTriggerAi, // This will show/hide the loader
     );
 
-    // save to db
-    if (winner != null || isDraw) {
+    // Update stats only for Single Player games
+    if (state.gameMode == GameMode.singlePlayer) {
       _checkAndSaveResult(winner, isDraw);
     }
 
-    if (state.isAiThinking) {
+    // Only call the AI service if the flag is true
+    if (shouldTriggerAi) {
       _triggerAiMove();
     }
   }
@@ -115,8 +163,8 @@ class GameNotifier extends _$GameNotifier {
     }
   }
 
-  void startGame(Difficulty difficulty) {
-    state = GameBoard.empty(difficulty: difficulty);
+  void startGame(Difficulty difficulty, GameMode mode) {
+    state = GameBoard.empty(difficulty: difficulty, gameMode: mode);
   }
 
   Player? _calculateWinner(List<Player> cells) {
@@ -136,13 +184,25 @@ class GameNotifier extends _$GameNotifier {
     return null;
   }
 
-  void resetGame() {
-    /// There are two options
-    // Option A: Use the difficulty already stored in the current game session
-    final currentDifficulty = state.difficulty;
-    state = GameBoard.empty(difficulty: currentDifficulty);
+  // void resetGame() {
+  //   /// There are two options
+  //   // Option A: Use the difficulty already stored in the current game session
+  //   final currentDifficulty = state.difficulty;
+  //   state = GameBoard.empty(difficulty: currentDifficulty);
 
-    // Option B: Always reset to whatever the user has selected on the Home Screen
-    // state = GameBoard.empty(difficulty: ref.read(selectedDifficultyProvider));
+  //   // Option B: Always reset to whatever the user has selected on the Home Screen
+  //   // state = GameBoard.empty(difficulty: ref.read(selectedDifficultyProvider));
+  // }
+
+  void resetGame() {
+    // Must capture the current mode and difficulty before clearing the board
+    final currentDifficulty = state.difficulty;
+    final currentMode = state.gameMode;
+
+    // Pass them back in so the game stays in the mode the user chose
+    state = GameBoard.empty(
+      difficulty: currentDifficulty,
+      gameMode: currentMode,
+    );
   }
 }

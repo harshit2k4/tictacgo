@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:tictacgo/features/game/application/game_notifier.dart';
 import 'package:tictacgo/features/game/domain/game_board.dart';
+import 'package:tictacgo/features/game/domain/game_mode.dart';
 import 'package:tictacgo/features/game/domain/game_stats.dart';
 import 'package:tictacgo/features/game/domain/player.dart';
 import 'package:tictacgo/features/game/presentation/widgets/game_cell.dart';
@@ -137,9 +138,40 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     GameBoard state,
     WidgetRef ref,
   ) {
-    // Access lifetime stats to show the player their record
     final statsBox = Hive.box<GameStats>('stats_box');
     final stats = statsBox.get('global_stats') ?? GameStats();
+
+    // Logic: Determine text, icons, and colors based on Mode
+    final bool isLocal = state.gameMode == GameMode.localMultiplayer;
+    final bool isDraw = state.isDraw;
+
+    String title;
+    String subtitle;
+    IconData icon;
+    Color color;
+
+    if (isDraw) {
+      title = "It's a Draw";
+      subtitle = "A perfectly balanced match!";
+      icon = Icons.handshake;
+      color = Colors.orange;
+    } else if (isLocal) {
+      // Celebration for both players in Pass & Play
+      title = state.winner == Player.x ? "Player X Wins!" : "Player O Wins!";
+      subtitle = "A hard-fought tactical battle.";
+      icon = Icons.emoji_events;
+      color = state.winner == Player.x ? Colors.blue : Colors.red;
+    } else {
+      // Classic Hero vs AI logic
+      title = state.winner == Player.x ? "Victory!" : "Defeat";
+      subtitle = state.winner == Player.x
+          ? "You outsmarted the AI!"
+          : "The AI was one step ahead.";
+      icon = state.winner == Player.x
+          ? Icons.emoji_events
+          : Icons.sentiment_very_dissatisfied;
+      color = state.winner == Player.x ? Colors.green : Colors.red;
+    }
 
     showGeneralDialog(
       context: context,
@@ -160,78 +192,61 @@ class _GameScreenState extends ConsumerState<GameScreen> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Icon based on result
+                  // Updated Icon/Avatar
                   CircleAvatar(
                     radius: 36,
-                    backgroundColor: state.winner == Player.x
-                        ? Colors.green.withOpacity(0.1)
-                        : state.isDraw
-                        ? Colors.orange.withOpacity(0.1)
-                        : Colors.red.withOpacity(0.1),
-                    child: Icon(
-                      state.winner == Player.x
-                          ? Icons.emoji_events
-                          : state.isDraw
-                          ? Icons.handshake
-                          : Icons.sentiment_very_dissatisfied,
-                      size: 40,
-                      color: state.winner == Player.x
-                          ? Colors.green
-                          : state.isDraw
-                          ? Colors.orange
-                          : Colors.red,
-                    ),
+                    backgroundColor: color.withOpacity(0.1),
+                    child: Icon(icon, size: 40, color: color),
                   ),
                   const SizedBox(height: 16),
-                  // Result Text
+                  // Updated Result Text
                   Text(
-                    state.winner == Player.x
-                        ? "Victory!"
-                        : state.isDraw
-                        ? "It's a Draw"
-                        : "Defeat",
+                    title,
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    state.winner == Player.x
-                        ? "You outsmarted the AI!"
-                        : "Better luck next time.",
+                    subtitle,
                     style: Theme.of(context).textTheme.bodyMedium,
+                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
-                  // Stats Preview Row
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 12,
-                      horizontal: 16,
+
+                  // Career Stats (Only show label "Career Stats" to clarify these aren't match stats)
+                  if (!isLocal) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 16,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceVariant.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildStatColumn("Wins", stats.wins),
+                          _buildStatColumn("Draws", stats.draws),
+                          _buildStatColumn("Losses", stats.losses),
+                        ],
+                      ),
                     ),
-                    decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.surfaceVariant.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildStatColumn("Wins", stats.wins),
-                        _buildStatColumn("Draws", stats.draws),
-                        _buildStatColumn("Losses", stats.losses),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 24),
+                  ],
+
                   // Buttons
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () {
-                            Navigator.of(context).pop();
-                            Navigator.of(context).pop();
+                            Navigator.of(context).pop(); // Close Dialog
+                            Navigator.of(context).pop(); // Exit Game Screen
                           },
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
