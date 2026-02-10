@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hive_ce/hive.dart';
 import 'package:hive_ce_flutter/hive_ce_flutter.dart';
 import 'package:tictacgo/features/game/application/game_notifier.dart';
 import 'package:tictacgo/features/game/domain/difficulty.dart';
