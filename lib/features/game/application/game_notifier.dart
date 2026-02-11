@@ -77,12 +77,14 @@ class GameNotifier extends _$GameNotifier {
         state.isAiThinking) {
       return;
     }
-
     // Execute the current move
     final newCells = List<Player>.from(state.cells);
     newCells[index] = state.currentPlayer;
 
-    final winner = _calculateWinner(newCells);
+    final result = _calculateWinner(newCells);
+    final winner = result.$1;
+    final winningLine = result.$2;
+
     final isDraw = !newCells.contains(Player.none) && winner == null;
     final nextPlayer = state.currentPlayer == Player.x ? Player.o : Player.x;
 
@@ -101,15 +103,14 @@ class GameNotifier extends _$GameNotifier {
       cells: newCells,
       currentPlayer: nextPlayer,
       winner: winner,
+      winningLine: winningLine,
       isDraw: isDraw,
-      isAiThinking: shouldTriggerAi, // This will show/hide the loader
+      isAiThinking: shouldTriggerAi,
     );
-
     // Update stats only for Single Player games
     if (state.gameMode == GameMode.singlePlayer) {
       _checkAndSaveResult(winner, isDraw);
     }
-
     // Only call the AI service if the flag is true
     if (shouldTriggerAi) {
       _triggerAiMove();
@@ -124,18 +125,21 @@ class GameNotifier extends _$GameNotifier {
         final newCells = List<Player>.from(state.cells);
         newCells[aiMove] = Player.o;
 
-        final winner = _calculateWinner(newCells);
+        final result = _calculateWinner(newCells);
+        final winner = result.$1;
+        final winningLine = result.$2;
+
         final isDraw = !newCells.contains(Player.none) && winner == null;
 
         state = state.copyWith(
           cells: newCells,
           currentPlayer: Player.x,
           winner: winner,
+          winningLine: winningLine,
           isDraw: isDraw,
           isAiThinking: false,
         );
 
-        // save to db
         if (winner != null || isDraw) {
           _checkAndSaveResult(winner, isDraw);
         }
@@ -183,7 +187,23 @@ class GameNotifier extends _$GameNotifier {
     }
   }
 
-  Player? _calculateWinner(List<Player> cells) {
+  // Player? _calculateWinner(List<Player> cells) {
+  //   const lines = [
+  //     [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
+  //     [0, 3, 6], [1, 4, 7], [2, 5, 8], // Cols
+  //     [0, 4, 8], [2, 4, 6], // Diagonals
+  //   ];
+
+  //   for (var line in lines) {
+  //     if (cells[line[0]] != Player.none &&
+  //         cells[line[0]] == cells[line[1]] &&
+  //         cells[line[0]] == cells[line[2]]) {
+  //       return cells[line[0]];
+  //     }
+  //   }
+  //   return null;
+  // }
+  (Player?, List<int>?) _calculateWinner(List<Player> cells) {
     const lines = [
       [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
       [0, 3, 6], [1, 4, 7], [2, 5, 8], // Cols
@@ -194,10 +214,10 @@ class GameNotifier extends _$GameNotifier {
       if (cells[line[0]] != Player.none &&
           cells[line[0]] == cells[line[1]] &&
           cells[line[0]] == cells[line[2]]) {
-        return cells[line[0]];
+        return (cells[line[0]], line);
       }
     }
-    return null;
+    return (null, null);
   }
 
   // void resetGame() {

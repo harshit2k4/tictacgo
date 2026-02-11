@@ -15,6 +15,7 @@ class GameBoard {
   final bool isTossing; // Is the coin currently in the air?
   final int playerXScore; // Session score for X
   final int playerOScore; // Session score for O
+  final List<int>? winningLine;
 
   GameBoard({
     required this.cells,
@@ -27,6 +28,7 @@ class GameBoard {
     this.isTossing = false, // Default to false
     this.playerXScore = 0, // Start at 0
     this.playerOScore = 0, // Start at 0
+    this.winningLine,
   });
 
   // This creates a fresh, empty 3x3 grid
@@ -46,6 +48,7 @@ class GameBoard {
       isTossing: isTossing,
       playerXScore: xScore,
       playerOScore: oScore,
+      winningLine: null, // Ensure it's null on start
     );
   }
 
@@ -62,6 +65,7 @@ class GameBoard {
     bool? isTossing,
     int? playerXScore,
     int? playerOScore,
+    List<int>? winningLine,
   }) {
     return GameBoard(
       cells: cells ?? this.cells,
@@ -74,6 +78,7 @@ class GameBoard {
       isTossing: isTossing ?? this.isTossing,
       playerXScore: playerXScore ?? this.playerXScore,
       playerOScore: playerOScore ?? this.playerOScore,
+      winningLine: winningLine ?? this.winningLine,
     );
   }
 }

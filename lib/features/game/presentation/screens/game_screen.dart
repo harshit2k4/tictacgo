@@ -146,27 +146,83 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                             style: Theme.of(context).textTheme.headlineMedium,
                           ),
                         ),
+                        // Expanded(
+                        //   child: Center(
+                        //     child: AspectRatio(
+                        //       aspectRatio: 1,
+                        //       child: Padding(
+                        //         padding: const EdgeInsets.all(24.0),
+                        //         child: GridView.builder(
+                        //           physics: const NeverScrollableScrollPhysics(),
+                        //           gridDelegate:
+                        //               const SliverGridDelegateWithFixedCrossAxisCount(
+                        //                 crossAxisCount: 3,
+                        //                 crossAxisSpacing: 12,
+                        //                 mainAxisSpacing: 12,
+                        //               ),
+                        //           itemCount: 9,
+                        //           itemBuilder: (context, index) {
+                        //             return GameCell(
+                        //               index: index,
+                        //               player: state.cells[index],
+                        //             );
+                        //           },
+                        //         ),
+                        //       ),
+                        //     ),
+                        //   ),
+                        // ),
                         Expanded(
                           child: Center(
                             child: AspectRatio(
                               aspectRatio: 1,
                               child: Padding(
                                 padding: const EdgeInsets.all(24.0),
-                                child: GridView.builder(
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  gridDelegate:
-                                      const SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 3,
-                                        crossAxisSpacing: 12,
-                                        mainAxisSpacing: 12,
+                                child: Stack(
+                                  // Added Stack to overlay the line
+                                  children: [
+                                    GridView.builder(
+                                      physics:
+                                          const NeverScrollableScrollPhysics(),
+                                      gridDelegate:
+                                          const SliverGridDelegateWithFixedCrossAxisCount(
+                                            crossAxisCount: 3,
+                                            crossAxisSpacing: 12,
+                                            mainAxisSpacing: 12,
+                                          ),
+                                      itemCount: 9,
+                                      itemBuilder: (context, index) {
+                                        return GameCell(
+                                          index: index,
+                                          player: state.cells[index],
+                                        );
+                                      },
+                                    ),
+                                    // --- WINNING LINE LAYER ---
+                                    if (state.winningLine != null)
+                                      IgnorePointer(
+                                        child: TweenAnimationBuilder<double>(
+                                          tween: Tween(begin: 0.0, end: 1.0),
+                                          duration: const Duration(
+                                            milliseconds: 400,
+                                          ),
+                                          curve: Curves.easeOut,
+                                          builder: (context, value, child) {
+                                            return CustomPaint(
+                                              size: Size.infinite,
+                                              painter: WinningLinePainter(
+                                                line: state.winningLine!,
+                                                color: state.winner == Player.x
+                                                    ? Colors.blue
+                                                    : Colors.red,
+                                                progress:
+                                                    value, // Pass the animation progress
+                                              ),
+                                            );
+                                          },
+                                        ),
                                       ),
-                                  itemCount: 9,
-                                  itemBuilder: (context, index) {
-                                    return GameCell(
-                                      index: index,
-                                      player: state.cells[index],
-                                    );
-                                  },
+                                  ],
                                 ),
                               ),
                             ),
@@ -396,4 +452,82 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       ],
     );
   }
+}
+
+// 2. Add the Painter class at the bottom of game_screen.dart:
+class WinningLinePainter extends CustomPainter {
+  final List<int> line;
+  final Color color;
+  final double progress;
+
+  WinningLinePainter({
+    required this.line,
+    required this.color,
+    required this.progress,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0) return;
+
+    final double cellSize = size.width / 3;
+
+    // 1. Calculate the Points
+    Offset getCenter(int index) {
+      int row = index ~/ 3;
+      int col = index % 3;
+      return Offset(
+        (col * cellSize) + (cellSize / 2),
+        (row * cellSize) + (cellSize / 2),
+      );
+    }
+
+    final startPoint = getCenter(line.first);
+    final endPoint = getCenter(line.last);
+    final direction = endPoint - startPoint;
+    final unitVector = direction / direction.distance;
+
+    // Extend the line 35% of a cell size for that "strike through" look
+    final extension = cellSize * 0.35;
+    final extendedStart = startPoint - (unitVector * extension);
+    final extendedEnd = endPoint + (unitVector * extension);
+
+    // 2. The Glow (Outer Blur)
+    final glowPaint = Paint()
+      ..color = color.withOpacity(0.4)
+      ..strokeWidth = 16.0
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke
+      ..maskFilter = const MaskFilter.blur(
+        BlurStyle.normal,
+        8.0,
+      ); // The "Juice"
+
+    // 3. The Core Line (Solid Center)
+    final corePaint = Paint()
+      ..color = Colors.white
+          .withOpacity(0.9) // Bright white core for "hot" laser look
+      ..strokeWidth = 6.0
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+
+    // 4. The Main Color Stroke
+    final mainPaint = Paint()
+      ..color = color
+      ..strokeWidth = 10.0
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+
+    // Calculate current animated position
+    final currentEnd = Offset.lerp(extendedStart, extendedEnd, progress)!;
+
+    // Draw layers from bottom to top
+    canvas.drawLine(extendedStart, currentEnd, glowPaint);
+    canvas.drawLine(extendedStart, currentEnd, mainPaint);
+    canvas.drawLine(extendedStart, currentEnd, corePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant WinningLinePainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }
