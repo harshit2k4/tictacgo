@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -164,7 +166,21 @@ class GameNotifier extends _$GameNotifier {
   }
 
   void startGame(Difficulty difficulty, GameMode mode) {
-    state = GameBoard.empty(difficulty: difficulty, gameMode: mode);
+    state = GameBoard.empty(
+      difficulty: difficulty,
+      gameMode: mode,
+      isTossing: true, // The UI will see this and show the coin flip
+    );
+  }
+
+  // Called when the animation finishes
+  void completeToss(Player starter) {
+    state = state.copyWith(isTossing: false, currentPlayer: starter);
+
+    // If it's Single Player and AI (O) won the toss, let it move!
+    if (state.gameMode == GameMode.singlePlayer && starter == Player.o) {
+      _triggerAiMove();
+    }
   }
 
   Player? _calculateWinner(List<Player> cells) {
@@ -194,15 +210,42 @@ class GameNotifier extends _$GameNotifier {
   //   // state = GameBoard.empty(difficulty: ref.read(selectedDifficultyProvider));
   // }
 
+  // void resetGame() {
+  //   // Must capture the current mode and difficulty before clearing the board
+  //   final currentDifficulty = state.difficulty;
+  //   final currentMode = state.gameMode;
+
+  //   // Pass them back in so the game stays in the mode the user chose
+  //   state = GameBoard.empty(
+  //     difficulty: currentDifficulty,
+  //     gameMode: currentMode,
+  //   );
+  // }
   void resetGame() {
-    // Must capture the current mode and difficulty before clearing the board
+    final winner = state.winner;
     final currentDifficulty = state.difficulty;
     final currentMode = state.gameMode;
 
-    // Pass them back in so the game stays in the mode the user chose
+    // Update Session Scores
+    int newXScore = state.playerXScore;
+    int newOScore = state.playerOScore;
+    if (winner == Player.x) newXScore++;
+    if (winner == Player.o) newOScore++;
+
+    // Logic: Winner starts. If draw, pick random.
+    final nextStarter = winner ?? (Random().nextBool() ? Player.x : Player.o);
+
     state = GameBoard.empty(
       difficulty: currentDifficulty,
       gameMode: currentMode,
+      currentPlayer: nextStarter,
+      xScore: newXScore,
+      oScore: newOScore,
+      isTossing: false, // Only toss for the first game!
     );
+
+    if (currentMode == GameMode.singlePlayer && nextStarter == Player.o) {
+      _triggerAiMove();
+    }
   }
 }

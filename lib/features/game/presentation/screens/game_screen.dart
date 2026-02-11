@@ -1,4 +1,4 @@
-import 'package:confetti/confetti.dart'; // 1. Add this import
+import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
@@ -8,6 +8,7 @@ import 'package:tictacgo/features/game/domain/game_mode.dart';
 import 'package:tictacgo/features/game/domain/game_stats.dart';
 import 'package:tictacgo/features/game/domain/player.dart';
 import 'package:tictacgo/features/game/presentation/widgets/game_cell.dart';
+import 'package:tictacgo/features/game/presentation/widgets/coin_toss_view.dart';
 
 class GameScreen extends ConsumerStatefulWidget {
   const GameScreen({super.key});
@@ -39,15 +40,35 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     final state = ref.watch(gameNotifierProvider);
 
     // LISTEN for game end
+    // ref.listen(gameNotifierProvider, (previous, next) {
+    //   if ((next.winner != null || next.isDraw) &&
+    //       (previous?.winner == null && previous?.isDraw == false)) {
+    //     // Fire confetti only on human win
+    //     if (next.winner == Player.x) {
+    //       _confettiController.play();
+    //     }
+
+    //     _showGameOverDialog(context, next, ref);
+    //   }
+    // });
     ref.listen(gameNotifierProvider, (previous, next) {
       if ((next.winner != null || next.isDraw) &&
           (previous?.winner == null && previous?.isDraw == false)) {
-        // Fire confetti only on human win
-        if (next.winner == Player.x) {
+        bool shouldCelebrate = false;
+        if (next.gameMode == GameMode.localMultiplayer && next.winner != null) {
+          shouldCelebrate = true; // Celebrate any winner in local play
+        } else if (next.winner == Player.x) {
+          shouldCelebrate = true; // Celebrate user win in single player
+        }
+
+        if (shouldCelebrate) {
           _confettiController.play();
         }
 
-        _showGameOverDialog(context, next, ref);
+        // Delay the dialog slightly so users can see the winning line
+        Future.delayed(const Duration(milliseconds: 600), () {
+          if (mounted) _showGameOverDialog(context, next, ref);
+        });
       }
     });
 
@@ -58,56 +79,102 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           appBar: AppBar(
             title: const Text('Tic Tac Go'),
             actions: [
-              IconButton(
-                onPressed: () =>
-                    ref.read(gameNotifierProvider.notifier).resetGame(),
-                icon: const Icon(Icons.refresh),
-              ),
+              // Only show refresh if not currently tossing
+              if (!state.isTossing)
+                IconButton(
+                  onPressed: () =>
+                      ref.read(gameNotifierProvider.notifier).resetGame(),
+                  icon: const Icon(Icons.refresh),
+                ),
             ],
           ),
           body: SafeArea(
-            child: Column(
-              children: [
-                const SizedBox(height: 20),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16.0),
-                  child: Text(
-                    state.winner != null
-                        ? 'Winner: ${state.winner == Player.x ? "X" : "O"}'
-                        : state.isDraw
-                        ? 'It\'s a Draw!'
-                        : 'Player ${state.currentPlayer == Player.x ? "X" : "O"}\'s Turn',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                ),
-                Expanded(
-                  child: Center(
-                    child: AspectRatio(
-                      aspectRatio: 1,
-                      child: Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: GridView.builder(
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 3,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
+            // Integrated AnimatedSwitcher for Coin Toss
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 500),
+              child: state.isTossing
+                  ? CoinTossView(
+                      onCompleted: (starter) {
+                        ref
+                            .read(gameNotifierProvider.notifier)
+                            .completeToss(starter);
+                      },
+                    )
+                  : Column(
+                      key: const ValueKey('game_content'),
+                      children: [
+                        // Integrated Scorecard
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 20,
+                            horizontal: 24,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              _buildScoreItem(
+                                "Player X",
+                                state.playerXScore,
+                                Colors.blue,
+                                state.currentPlayer == Player.x,
                               ),
-                          itemCount: 9,
-                          itemBuilder: (context, index) {
-                            return GameCell(
-                              index: index,
-                              player: state.cells[index],
-                            );
-                          },
+                              const Text(
+                                "VS",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              _buildScoreItem(
+                                "Player O",
+                                state.playerOScore,
+                                Colors.red,
+                                state.currentPlayer == Player.o,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16.0),
+                          child: Text(
+                            state.winner != null
+                                ? 'Winner: ${state.winner == Player.x ? "X" : "O"}'
+                                : state.isDraw
+                                ? 'It\'s a Draw!'
+                                : 'Player ${state.currentPlayer == Player.x ? "X" : "O"}\'s Turn',
+                            style: Theme.of(context).textTheme.headlineMedium,
+                          ),
+                        ),
+                        Expanded(
+                          child: Center(
+                            child: AspectRatio(
+                              aspectRatio: 1,
+                              child: Padding(
+                                padding: const EdgeInsets.all(24.0),
+                                child: GridView.builder(
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  gridDelegate:
+                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 3,
+                                        crossAxisSpacing: 12,
+                                        mainAxisSpacing: 12,
+                                      ),
+                                  itemCount: 9,
+                                  itemBuilder: (context, index) {
+                                    return GameCell(
+                                      index: index,
+                                      player: state.cells[index],
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 40),
+                      ],
                     ),
-                  ),
-                ),
-                const SizedBox(height: 40),
-              ],
             ),
           ),
         ),
@@ -130,6 +197,39 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  // Scorecard Item Widget
+  Widget _buildScoreItem(
+    String label,
+    int score,
+    Color color,
+    bool isCurrentTurn,
+  ) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: isCurrentTurn ? color.withOpacity(0.1) : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isCurrentTurn ? color : Colors.transparent,
+          width: 2,
+        ),
+      ),
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: TextStyle(color: color, fontWeight: FontWeight.bold),
+          ),
+          Text(
+            "$score",
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
     );
   }
 
